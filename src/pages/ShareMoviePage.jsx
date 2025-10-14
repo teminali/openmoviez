@@ -332,6 +332,7 @@ export default function ShareMoviePage() {
     const [year, setYear] = useState("");
     const [releaseDate, setReleaseDate] = useState("");
     const [genres, setGenres] = useState([]);
+    const [trailerLink, setTrailerLink] = useState("");
 
     const [videoType, setVideoType] = useState("youtube"); // youtube | direct
     const [videoLink, setVideoLink] = useState("");
@@ -365,6 +366,9 @@ export default function ShareMoviePage() {
                 setYear(String(doc.year || ""));
                 setReleaseDate(doc.releaseDate ? formatDateForInput(doc.releaseDate.toDate()) : "");
                 setGenres(Array.isArray(doc.genres) ? doc.genres : []);
+                if (doc.trailerYoutubeID) {
+                    setTrailerLink(`https://youtu.be/${doc.trailerYoutubeID}`);
+                }
 
                 if (doc.type === "movie") {
                     if (doc.youtubeID) {
@@ -431,19 +435,20 @@ export default function ShareMoviePage() {
         if (year) p += 5;
         if (releaseDate) p += 5;
         if (genres.length) p += 10;
+        if (trailerLink) p += 10;
         if (posterFile || posterURL) p += 10;
         if (coverFile || coverURL) p += 5;
-        if (contentType === "movie" && videoLink) p += 35;
-        if (contentType === "series" && episodes.length) p += clamp(episodes.filter(e => e.title && e.videoLink).length * 10, 0, 35);
+        if (contentType === "movie" && videoLink) p += 30;
+        if (contentType === "series" && episodes.length) p += clamp(episodes.filter(e => e.title && e.videoLink).length * 10, 0, 30);
         return clamp(p, 0, 100);
-    }, [title, description, year, releaseDate, genres, posterFile, posterURL, coverFile, coverURL, contentType, videoLink, episodes]);
+    }, [title, description, year, releaseDate, genres, trailerLink, posterFile, posterURL, coverFile, coverURL, contentType, videoLink, episodes]);
 
     const canSubmit = useMemo(() => {
         if (!posterFile && !posterURL) return false;
-        if (!title || !description || !year || !releaseDate || genres.length === 0) return false;
+        if (!title || !description || !year || !releaseDate || genres.length === 0 || !trailerLink) return false;
         if (contentType === "movie") return !!videoLink;
         return episodes.length > 0 && episodes.every(e => e.seasonNumber && e.episodeNumber && e.title && e.videoLink);
-    }, [posterFile, posterURL, title, description, year, releaseDate, genres, contentType, videoLink, episodes]);
+    }, [posterFile, posterURL, title, description, year, releaseDate, genres, trailerLink, contentType, videoLink, episodes]);
 
     const handleSubmit = useCallback(async (e) => {
         e.preventDefault();
@@ -453,6 +458,9 @@ export default function ShareMoviePage() {
         try {
             setSubmitting(true);
 
+            const trailerYoutubeID = getYoutubeId(trailerLink);
+            if (!trailerYoutubeID) throw new Error("Invalid YouTube Trailer URL. Use a valid public or unlisted link.");
+
             const payload = {
                 title,
                 description,
@@ -461,6 +469,7 @@ export default function ShareMoviePage() {
                 rating: 0,
                 genres,
                 type: contentType,
+                trailerYoutubeID,
             };
 
             if (contentType === "movie") {
@@ -501,7 +510,7 @@ export default function ShareMoviePage() {
         } finally {
             setSubmitting(false);
         }
-    }, [movieId, title, description, year, releaseDate, genres, contentType, videoType, videoLink, episodes, posterFile, coverFile, actors, directors, currentUser, navigate, posterURL]);
+    }, [movieId, title, description, year, releaseDate, genres, contentType, videoType, videoLink, episodes, posterFile, coverFile, actors, directors, currentUser, navigate, posterURL, trailerLink]);
 
     return (
         <Shell>
@@ -604,6 +613,16 @@ export default function ShareMoviePage() {
                                         <Label>Synopsis</Label>
                                         <Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Short, compelling synopsis" required className="min-h-[110px]" />
                                     </div>
+                                    <div>
+                                        <Label>YouTube Trailer URL</Label>
+                                        <Input
+                                            type="url"
+                                            value={trailerLink}
+                                            onChange={(e) => setTrailerLink(e.target.value)}
+                                            placeholder="https://youtu.be/… or https://youtube.com/watch?v=…"
+                                            required
+                                        />
+                                    </div>
                                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                         <div>
                                             <Label>Year</Label>
@@ -687,6 +706,7 @@ export default function ShareMoviePage() {
                                     <div className="flex justify-between"><span className="text-slate-400">Mode</span><span className="font-medium">{movieId ? "Edit" : "Create"}</span></div>
                                     <div className="flex justify-between"><span className="text-slate-400">Type</span><span className="font-medium">{contentType === "movie" ? "Movie" : "TV Series"}</span></div>
                                     <div className="flex justify-between"><span className="text-slate-400">Title</span><span className="font-medium truncate max-w-[160px]" title={title}>{title || "—"}</span></div>
+                                    <div className="flex justify-between"><span className="text-slate-400">Trailer</span><span className="font-medium">{trailerLink ? "Provided" : "—"}</span></div>
                                     <div className="flex justify-between"><span className="text-slate-400">Year</span><span className="font-medium">{year || "—"}</span></div>
                                     <div className="flex justify-between"><span className="text-slate-400">Release Date</span><span className="font-medium">{releaseDate ? new Date(releaseDate).toLocaleString() : "—"}</span></div>
                                     <div>

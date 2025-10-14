@@ -97,7 +97,7 @@ export default function ManageMoviesTab({ movies = [], refetchMovies }) {
                             <td className="px-4 py-3">{row.rating}</td>
                             <td className="px-4 py-3 text-right">
                                 <div className="flex items-center justify-end gap-2">
-                                    <Link to={`/movie/${row.id}`} className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5"><Eye className="size-4"/></Link>
+                                    <Link to={`/watch/${row.id}`} className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5"><Eye className="size-4"/></Link>
                                     <Link to={`/share/${row.id}`} className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5"><Edit3 className="size-4"/></Link>
                                 </div>
                             </td>

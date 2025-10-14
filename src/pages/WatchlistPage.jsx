@@ -3,10 +3,11 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import {
-    Film, Play, Trash2, Grid, List, ArrowUpDown, Star, Search,
-    X, CheckSquare, Square, Layers, ChevronLeft
+    Film, Trash2, Grid, List, ArrowUpDown, Search,
+    X, Layers, ChevronLeft
 } from "lucide-react";
 import { getWatchlist, getMoviesByIds, removeFromWatchlist } from "../firebase";
+import WatchlistMovieCard from "../components/WatchlistMovieCard.jsx";
 
 /* -----------------------------
    Tailwind-only primitives
@@ -44,96 +45,6 @@ const TYPE_FILTERS = [
     { id: "movie", label: "Movies" },
     { id: "series", label: "TV" },
 ];
-
-/* -----------------------------
-   Movie Card (grid/list)
------------------------------ */
-function WatchlistCard({ movie, view = "grid", onRemove, selectable, selected, onToggleSelect }) {
-    const rating = movie.rating || movie.avgRating || 0;
-    const isSeries = movie.type === "series";
-
-    return (
-        <div className={cx(
-            "group relative rounded-2xl border border-white/10 bg-white/[0.03] overflow-hidden shadow-2xl transition-transform hover:-translate-y-0.5",
-            view === "grid" ? "" : "flex"
-        )}>
-            {/* Select checkbox (overlay) */}
-            {selectable && (
-                <button
-                    onClick={onToggleSelect}
-                    className={cx(
-                        "absolute z-10 top-2 left-2 rounded-md px-2 py-1 text-xs border",
-                        selected ? "bg-indigo-500/90 border-indigo-400" : "bg-black/60 border-white/20"
-                    )}
-                    aria-label={selected ? "Deselect" : "Select"}
-                >
-                    {selected ? <CheckSquare className="size-4" /> : <Square className="size-4" />}
-                </button>
-            )}
-
-            <Link
-                to={`/movie/${movie.id}`}
-                className={cx("block", view === "grid" ? "w-full" : "w-32 flex-shrink-0")}
-                aria-label={`Open ${movie.title}`}
-            >
-                <div className={cx(view === "grid" ? "aspect-[11/16]" : "aspect-[2/3]")}>
-                    <img
-                        src={movie.posterURL}
-                        alt={movie.title}
-                        loading="lazy"
-                        className="h-full w-full object-cover transition-transform duration-300 ease-in-out group-hover:scale-105"
-                    />
-                </div>
-            </Link>
-
-            {/* Meta */}
-            <div className={cx("p-3", view === "grid" ? "" : "flex-1 min-w-0")}>
-                <Link to={`/movie/${movie.id}`} className="block">
-                    <div className="flex items-center gap-2 text-xs text-slate-400 mb-1">
-                        <span>{isSeries ? "TV" : "Movie"}</span>
-                        {movie.year ? <span>• {movie.year}</span> : null}
-                        {movie.runtime ? <span>• {movie.runtime}m</span> : null}
-                    </div>
-                    <h3 className="font-medium text-slate-100 truncate group-hover:text-indigo-300">
-                        {movie.title}
-                    </h3>
-                </Link>
-                <div className="mt-1 flex items-center gap-2 text-xs text-slate-300">
-                    <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
-                    <span>{Number(rating).toFixed(1)}</span>
-                    {movie.genres?.length ? (
-                        <span className="ml-2 truncate">{movie.genres.slice(0, 2).join(" · ")}</span>
-                    ) : null}
-                </div>
-
-                {view === "list" && (
-                    <p className="mt-2 text-sm text-slate-300/80 line-clamp-2">{movie.description}</p>
-                )}
-
-                {/* Actions */}
-                <div className="mt-3 flex items-center gap-2">
-                    <Link
-                        to={`/movie/${movie.id}`}
-                        className="inline-flex items-center gap-2 rounded-xl bg-indigo-500/90 hover:bg-indigo-500 border border-white/10 px-3 py-1.5 text-sm"
-                    >
-                        <Play className="size-4" /> Play
-                    </Link>
-                    <button
-                        onClick={() => onRemove(movie)}
-                        className="inline-flex items-center gap-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 px-3 py-1.5 text-sm"
-                    >
-                        <Trash2 className="size-4" /> Remove
-                    </button>
-                </div>
-            </div>
-
-            {/* Hover gradient/overlay (grid) */}
-            {view === "grid" && (
-                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-            )}
-        </div>
-    );
-}
 
 /* -----------------------------
    Page
@@ -436,7 +347,7 @@ export default function WatchlistPage() {
                             {view === "grid" ? (
                                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-8 mt-8">
                                     {visible.map((movie) => (
-                                        <WatchlistCard
+                                        <WatchlistMovieCard
                                             key={movie.id}
                                             movie={movie}
                                             view="grid"
@@ -450,7 +361,7 @@ export default function WatchlistPage() {
                             ) : (
                                 <div className="mt-6 space-y-4">
                                     {visible.map((movie) => (
-                                        <WatchlistCard
+                                        <WatchlistMovieCard
                                             key={movie.id}
                                             movie={movie}
                                             view="list"

@@ -116,7 +116,7 @@ export default function Navbar({ currentUser, onLogout }) {
     const selectResult = (m) => {
         setDropdownOpen(false);
         setQuery("");
-        navigate(`/movie/${m.id}`);
+        navigate(`/watch/${m.id}`);
         updateSearchCount(qDebounced || m.title, m);
     };
 
@@ -138,11 +138,13 @@ export default function Navbar({ currentUser, onLogout }) {
     return (
         <header
             className={cx(
-                "sticky top-0 z-50 backdrop-blur mt-0",
-                scrolled ? "shadow-[inset_0_-1px_0_0_rgba(255,255,255,0.06)]" : ""
+                "mt-0 sticky top-0 z-50 backdrop-blur transition-colors duration-300",
+                scrolled
+                    ? "bg-black shadow-[inset_0_-1px_0_0_rgba(255,255,255,0.06)]"
+                    : "bg-transparent"
             )}
         >
-            <div className=" px-4 md:px-6 lg:px-8">
+            <div className="mx-auto max-w-7xl px-4 md:px-6">
                 <div className="h-16 flex items-center gap-3 text-slate-100">
                     {/* Mobile burger */}
                     <button

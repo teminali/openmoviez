@@ -599,3 +599,21 @@ export const getMoviesByIds = async (ids = []) => {
 
     return ids.map(id => movieMap[id]).filter(Boolean);
 };
+
+
+// --- Like/Unlike Functions ---
+export const likeMovie = async (movieId, userId) => {
+    if (!userId || !movieId) return;
+    const movieDocRef = doc(db, MOVIES_COLLECTION, movieId);
+    await updateDoc(movieDocRef, {
+        likes: arrayUnion(userId)
+    });
+};
+
+export const unlikeMovie = async (movieId, userId) => {
+    if (!userId || !movieId) return;
+    const movieDocRef = doc(db, MOVIES_COLLECTION, movieId);
+    await updateDoc(movieDocRef, {
+        likes: arrayRemove(userId)
+    });
+};

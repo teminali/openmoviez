@@ -6,6 +6,7 @@ import Footer from "./components/Footer.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import AdminRoute from "./components/AdminRoute.jsx";
 import { useAuth } from "./context/AuthContext.jsx";
+import { PreviewModalProvider } from './context/PreviewModalContext.jsx'; // Import the provider
 import Spinner from "./components/Spinner.jsx";
 
 // Eager-light pages (keep fast)
@@ -16,14 +17,13 @@ import MoviesPage from "./pages/MoviesPage.jsx";
 import SeriesPage from "./pages/SeriesPage.jsx";
 import ShareMoviePage from "./pages/ShareMoviePage.jsx";
 import WatchlistPage from "./pages/WatchlistPage.jsx";
-// ✅ New: legal pages (small, keep eager)
 import PrivacyPolicyPage from "./pages/PrivacyPolicyPage.jsx";
 import TermsOfUsePage from "./pages/TermsOfUsePage.jsx";
 
 // Lazy-heavy pages
-const MovieDetailsPage = lazy(() => import("./pages/MovieDetailsPage.jsx"));
 const DashboardPage = lazy(() => import("./pages/DashboardPage.jsx"));
 const AdminPage = lazy(() => import("./pages/AdminPage.jsx"));
+const FullScreenPlayerPage = lazy(() => import('./pages/FullScreenPlayerPage.jsx')); // Add new player page
 
 // Smooth scroll to top on route change
 function ScrollToTop() {
@@ -34,7 +34,7 @@ function ScrollToTop() {
     return null;
 }
 
-// Root layout applies global background + shared chrome
+// Root layout applies global background + shared chrome (Navbar, Footer)
 function RootLayout({ currentUser, onLogout }) {
     const navbarProps = useMemo(() => ({ currentUser, onLogout }), [currentUser, onLogout]);
 
@@ -43,15 +43,8 @@ function RootLayout({ currentUser, onLogout }) {
             <Navbar {...navbarProps} />
             <ScrollToTop />
             <div className="min-h-[calc(100vh-4rem)]">
-                <Suspense
-                    fallback={
-                        <div className="min-h-[60vh] grid place-items-center">
-                            <Spinner />
-                        </div>
-                    }
-                >
-                    <Outlet />
-                </Suspense>
+                {/* Outlet for pages within the main layout */}
+                <Outlet />
             </div>
             <Footer />
         </div>
@@ -78,71 +71,81 @@ const App = () => {
     const { currentUser, logOut } = useAuth();
 
     return (
-        <Routes>
-            {/* Root shell that renders Navbar/Footer and the gradient once */}
-            <Route element={<RootLayout currentUser={currentUser} onLogout={logOut} />}>
-                {/* Public */}
-                <Route path="/" element={<Home />} />
-                <Route path="/login" element={<LoginPage />} />
-                <Route path="/signup" element={<SignupPage />} />
-                <Route path="/movies" element={<MoviesPage />} />
-                <Route path="/series" element={<SeriesPage />} />
-                {/* ✅ New: Legal pages */}
-                <Route path="/privacy" element={<PrivacyPolicyPage />} />
-                <Route path="/terms" element={<TermsOfUsePage />} />
+        <PreviewModalProvider>
+            <Suspense
+                fallback={
+                    <div className="min-h-screen grid place-items-center bg-slate-950">
+                        <Spinner />
+                    </div>
+                }
+            >
+                <Routes>
+                    {/* Routes with Navbar and Footer */}
+                    <Route element={<RootLayout currentUser={currentUser} onLogout={logOut} />}>
+                        {/* Public */}
+                        <Route path="/" element={<Home />} />
+                        <Route path="/login" element={<LoginPage />} />
+                        <Route path="/signup" element={<SignupPage />} />
+                        <Route path="/movies" element={<MoviesPage />} />
+                        <Route path="/series" element={<SeriesPage />} />
+                        <Route path="/privacy" element={<PrivacyPolicyPage />} />
+                        <Route path="/terms" element={<TermsOfUsePage />} />
 
-                {/* Movie details (lazy) */}
-                <Route path="/movie/:id" element={<MovieDetailsPage />} />
+                        {/* Protected */}
+                        <Route
+                            path="/share"
+                            element={
+                                <ProtectedRoute>
+                                    <ShareMoviePage />
+                                </ProtectedRoute>
+                            }
+                        />
+                        <Route
+                            path="/share/:id"
+                            element={
+                                <ProtectedRoute>
+                                    <ShareMoviePage />
+                                </ProtectedRoute>
+                            }
+                        />
+                        <Route
+                            path="/dashboard"
+                            element={
+                                <ProtectedRoute>
+                                    <DashboardPage />
+                                </ProtectedRoute>
+                            }
+                        />
+                        <Route
+                            path="/watchlist"
+                            element={
+                                <ProtectedRoute>
+                                    <WatchlistPage />
+                                </ProtectedRoute>
+                            }
+                        />
 
-                {/* Protected */}
-                <Route
-                    path="/share"
-                    element={
-                        <ProtectedRoute>
-                            <ShareMoviePage />
-                        </ProtectedRoute>
-                    }
-                />
-                <Route
-                    path="/share/:id"
-                    element={
-                        <ProtectedRoute>
-                            <ShareMoviePage />
-                        </ProtectedRoute>
-                    }
-                />
-                <Route
-                    path="/dashboard"
-                    element={
-                        <ProtectedRoute>
-                            <DashboardPage />
-                        </ProtectedRoute>
-                    }
-                />
-                <Route
-                    path="/watchlist"
-                    element={
-                        <ProtectedRoute>
-                            <WatchlistPage />
-                        </ProtectedRoute>
-                    }
-                />
+                        {/* Admin */}
+                        <Route
+                            path="/admin"
+                            element={
+                                <AdminRoute>
+                                    <AdminPage />
+                                </AdminRoute>
+                            }
+                        />
 
-                {/* Admin (lazy) */}
-                <Route
-                    path="/admin"
-                    element={
-                        <AdminRoute>
-                            <AdminPage />
-                        </AdminRoute>
-                    }
-                />
+                        {/* 404 - Renders inside the layout */}
+                        <Route path="*" element={<NotFound />} />
+                    </Route>
 
-                {/* 404 */}
-                <Route path="*" element={<NotFound />} />
-            </Route>
-        </Routes>
+                    {/* Standalone Fullscreen Player Route (No Navbar/Footer) */}
+                    <Route path="/watch/:id" element={<FullScreenPlayerPage />} />
+                </Routes>
+            </Suspense>
+        </PreviewModalProvider>
     );
 };
 
 export default App;
+

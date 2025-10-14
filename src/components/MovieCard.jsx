@@ -1,28 +1,68 @@
 // src/components/MovieCard.jsx
-import React from 'react';
-import { motion } from 'framer-motion';
+import React, { useRef, useState } from "react";
+import { Star, Plus } from "lucide-react";
+import { usePreviewModal } from "../context/PreviewModalContext";
 
-// This component displays a single movie in the grid on the homepage.
-const MovieCard = ({ movie }) => {
+// In a real app, you would import this from your context file
+// For this preview, we'll mock it if it's not provided.
+const MockPreviewModalContext = React.createContext({
+    showPreview: (movie) => console.log("Showing preview for:", movie.title),
+});
+
+const usePreviewModalContext = () => {
+    return React.useContext(usePreviewModal ? MockPreviewModalContext : MockPreviewModalContext)
+}
+
+
+export default function MovieCard({ movie }) {
+    const { showPreview } = usePreviewModal ? usePreviewModal() : usePreviewModalContext();
+    const hoverTimeout = useRef(null);
+    const cardRef = useRef(null);
+    const [imgLoaded, setImgLoaded] = useState(false);
+
+    const openCompactPreview = () => {
+        showPreview(movie, cardRef.current /* anchor */, false);
+    };
+
+    const openExpandedPreview = () => {
+        if (hoverTimeout.current) clearTimeout(hoverTimeout.current); // Prevent hover action on click
+        showPreview(movie, cardRef.current /* anchor */, true);
+    };
+
+    const handleEnter = () => {
+        hoverTimeout.current = setTimeout(openCompactPreview, 1000); // 1-second delay
+    };
+    const handleLeave = () => {
+        if (hoverTimeout.current) clearTimeout(hoverTimeout.current);
+    };
+
     return (
-        <motion.div
-            className="movie-card bg-dark-100 rounded-2xl overflow-hidden shadow-lg"
-            whileHover={{ scale: 1.05, boxShadow: "0px 10px 20px rgba(0, 0, 0, 0.4)" }}
-            transition={{ duration: 0.2 }}
+        <div
+            ref={cardRef}
+            className="bg-[#1A1A1A] rounded-lg overflow-hidden text-white flex flex-col h-full cursor-pointer group"
+            onPointerEnter={handleEnter}
+            onPointerLeave={handleLeave}
+            onClick={openExpandedPreview}
+            tabIndex={0}
+            onFocus={handleEnter}
         >
-            <img src={movie.posterURL} alt={movie.title} className="w-full h-auto aspect-[2/3] object-cover" />
-            <div className="p-4">
-                <h3 className="text-white font-bold text-lg line-clamp-1">{movie.title}</h3>
-                <div className="content mt-2 flex justify-between items-center">
-                    <div className="rating flex items-center gap-1">
-                        <img src="/star.svg" alt="star" className="w-4 h-4" />
-                        <p className="text-white font-bold">{movie.rating}</p>
-                    </div>
-                    <span className="text-gray-400 font-medium">{movie.year}</span>
-                </div>
+            <div className="relative">
+                {!imgLoaded && <div className="absolute inset-0 animate-pulse bg-slate-800/60" />}
+                <img
+                    src={movie.posterURL}
+                    alt={movie.title}
+                    loading="lazy"
+                    onLoad={() => setImgLoaded(true)}
+                    className="w-full aspect-[2/3] object-cover transition-transform duration-300 group-hover:scale-105"
+                />
             </div>
-        </motion.div>
+            <div className="p-3">
+                <div className="flex items-center gap-2 mb-2">
+                    <Star className="w-4 h-4 text-yellow-400 fill-current" />
+                    <span className="font-bold text-sm">{movie.rating?.toFixed(1) || 'N/A'}</span>
+                </div>
+                <h3 className="font-semibold text-base line-clamp-2">{movie.title}</h3>
+            </div>
+        </div>
     );
-};
-
-export default MovieCard;
+}
