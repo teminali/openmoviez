@@ -125,6 +125,21 @@ export default function FullScreenPlayerPage() {
     const [isEpisodesPanelOpen, setIsEpisodesPanelOpen] = useState(false);
     const [isInfoPanelOpen, setIsInfoPanelOpen] = useState(false);
 
+    // --- Player Cleanup ---
+    useEffect(() => {
+        const playerInstance = plyrRef.current?.plyr;
+
+        // The function returned by useEffect is the cleanup function
+        return () => {
+            try {
+                // Destroy the Plyr instance when the component unmounts
+                playerInstance?.destroy();
+            } catch (e) {
+                console.warn("Error destroying Plyr instance on unmount:", e);
+            }
+        };
+    }, []); // The empty array ensures this runs only on mount and unmount
+
     // --- Data Fetching ---
     useEffect(() => {
         const fetchContent = async () => {

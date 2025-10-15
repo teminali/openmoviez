@@ -223,10 +223,11 @@ export default function MoviePreviewModal({
         }
     }, []);
 
-    // This function handles dismissing the modal and navigating
     const handlePlay = () => {
         onClose?.();
-        navigate(`/watch/${movie.id}`);
+        setTimeout(() => {
+            navigate(`/watch/${movie.id}`);
+        }, 400);
     };
 
     const handleKeyDown = useCallback((e) => {
@@ -272,8 +273,16 @@ export default function MoviePreviewModal({
     };
 
     // Effects
-    useEffect(() => { // Player cleanup
-        return () => { try { plyrRef.current?.plyr?.destroy(); } catch {} };
+    useEffect(() => {
+        return () => {
+            try {
+                if (plyrRef.current && typeof plyrRef.current.plyr.destroy === 'function') {
+                    plyrRef.current.plyr.destroy();
+                }
+            } catch (e) {
+                console.warn("Error destroying Plyr instance on unmount:", e);
+            }
+        };
     }, []);
 
     useEffect(() => { // Fetch details, recommendations, and user-specific data
