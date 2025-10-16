@@ -4,7 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import Plyr from 'plyr-react';
 import 'plyr/dist/plyr.css';
 import { motion, AnimatePresence } from 'framer-motion';
-import { getMovieById } from '../firebase';
+import { getMovieById } from '../firebase'; //
 import {
     ArrowLeft,
     Info,
@@ -22,11 +22,11 @@ const cx = (...c) => c.filter(Boolean).join(" ");
 
 const EpisodesPanel = ({ content, currentEpisode, onSelectEpisode, onClose }) => {
     const seasons = useMemo(() => {
-        if (!content.episodes?.length) return {};
-        return content.episodes.reduce((acc, ep) => {
-            const season = ep.seasonNumber || 1;
-            if (!acc[season]) acc[season] = [];
-            acc[season].push(ep);
+        if (!content.episodes?.length) return {}; //
+        return content.episodes.reduce((acc, ep) => { //
+            const season = ep.seasonNumber || 1; //
+            if (!acc[season]) acc[season] = []; //
+            acc[season].push(ep); //
             return acc;
         }, {});
     }, [content.episodes]);
@@ -46,16 +46,16 @@ const EpisodesPanel = ({ content, currentEpisode, onSelectEpisode, onClose }) =>
                 </button>
             </div>
             <div className="h-[calc(100%-4.5rem)] overflow-y-auto">
-                {Object.keys(seasons).sort((a,b) => Number(a) - Number(b)).map(seasonNumber => (
+                {Object.keys(seasons).sort((a,b) => Number(a) - Number(b)).map(seasonNumber => ( //
                     <div key={seasonNumber}>
                         <h3 className="p-4 text-lg font-semibold text-slate-300">Season {seasonNumber}</h3>
                         <ul>
-                            {seasons[seasonNumber].map(ep => {
-                                const isCurrent = ep.youtubeID === currentEpisode.youtubeID;
+                            {seasons[seasonNumber].map(ep => { //
+                                const isCurrent = ep.youtubeID === currentEpisode.youtubeID; //
                                 return (
                                     <li key={ep.youtubeID || `${ep.seasonNumber}-${ep.episodeNumber}`}>
                                         <button
-                                            onClick={() => onSelectEpisode(ep)}
+                                            onClick={() => onSelectEpisode(ep)} //
                                             className={cx(
                                                 "w-full text-left px-4 py-3 flex gap-4 items-center transition-colors",
                                                 isCurrent ? "bg-indigo-500/30" : "hover:bg-white/10"
@@ -77,7 +77,7 @@ const EpisodesPanel = ({ content, currentEpisode, onSelectEpisode, onClose }) =>
     );
 };
 
-const InfoPanel = ({ content, onClose }) => (
+const InfoPanel = ({ content, onClose }) => ( //
     <motion.div
         initial={{ x: '100%' }}
         animate={{ x: 0 }}
@@ -108,32 +108,37 @@ const InfoPanel = ({ content, onClose }) => (
 // --- Main Player Component ---
 
 export default function FullScreenPlayerPage() {
-    const { id } = useParams();
-    const navigate = useNavigate();
-    const plyrRef = useRef(null);
-    const controlsTimeoutRef = useRef(null);
+    const { id } = useParams(); //
+    const navigate = useNavigate(); //
+
+    // --- DEBUGGING LINE ADDED ---
+    // This will show the exact ID being used to fetch data in your browser's developer console.
+    console.log("Player page trying to fetch document with ID:", id);
+
+    const plyrRef = useRef(null); //
+    const controlsTimeoutRef = useRef(null); //
 
     // Data state
-    const [content, setContent] = useState(null);
-    const [isLoading, setIsLoading] = useState(true);
-    const [error, setError] = useState('');
-    const [currentEpisode, setCurrentEpisode] = useState(null);
+    const [content, setContent] = useState(null); //
+    const [isLoading, setIsLoading] = useState(true); //
+    const [error, setError] = useState(''); //
+    const [currentEpisode, setCurrentEpisode] = useState(null); //
 
     // UI state
-    const [isControlsVisible, setIsControlsVisible] = useState(true);
-    const [isMuted, setIsMuted] = useState(true);
-    const [isEpisodesPanelOpen, setIsEpisodesPanelOpen] = useState(false);
-    const [isInfoPanelOpen, setIsInfoPanelOpen] = useState(false);
+    const [isControlsVisible, setIsControlsVisible] = useState(true); //
+    const [isMuted, setIsMuted] = useState(true); //
+    const [isEpisodesPanelOpen, setIsEpisodesPanelOpen] = useState(false); //
+    const [isInfoPanelOpen, setIsInfoPanelOpen] = useState(false); //
 
     // --- Player Cleanup ---
     useEffect(() => {
-        const playerInstance = plyrRef.current?.plyr;
+        const playerInstance = plyrRef.current?.plyr; //
 
         // The function returned by useEffect is the cleanup function
         return () => {
             try {
                 // Destroy the Plyr instance when the component unmounts
-                playerInstance?.destroy();
+                playerInstance?.destroy(); //
             } catch (e) {
                 console.warn("Error destroying Plyr instance on unmount:", e);
             }
@@ -143,28 +148,28 @@ export default function FullScreenPlayerPage() {
     // --- Data Fetching ---
     useEffect(() => {
         const fetchContent = async () => {
-            setIsLoading(true);
-            setError('');
+            setIsLoading(true); //
+            setError(''); //
             try {
-                const data = await getMovieById(id);
+                const data = await getMovieById(id); //
                 if (!data) {
-                    setError("Content not found.");
+                    setError("Content not found."); //
                 } else {
-                    setContent(data);
-                    if (data.type === 'series' && data.episodes?.length > 0) {
+                    setContent(data); //
+                    if (data.type === 'series' && data.episodes?.length > 0) { //
                         // Sort and set the first episode
-                        const sortedEpisodes = [...data.episodes].sort((a, b) =>
-                            a.seasonNumber - b.seasonNumber || a.episodeNumber - b.episodeNumber
+                        const sortedEpisodes = [...data.episodes].sort((a, b) => //
+                            a.seasonNumber - b.seasonNumber || a.episodeNumber - b.episodeNumber //
                         );
-                        data.episodes = sortedEpisodes;
-                        setCurrentEpisode(sortedEpisodes[0]);
+                        data.episodes = sortedEpisodes; //
+                        setCurrentEpisode(sortedEpisodes[0]); //
                     }
                 }
             } catch (err) {
-                setError("Failed to load content.");
+                setError("Failed to load content."); //
                 console.error(err);
             } finally {
-                setIsLoading(false);
+                setIsLoading(false); //
             }
         };
         fetchContent();
@@ -172,20 +177,20 @@ export default function FullScreenPlayerPage() {
 
     // --- Player Source ---
     const playerSource = useMemo(() => {
-        const sourceItem = content?.type === 'series' ? currentEpisode : content;
+        const sourceItem = content?.type === 'series' ? currentEpisode : content; //
         if (!sourceItem) return null;
 
         if (sourceItem.youtubeID) {
-            return { type: 'video', sources: [{ src: sourceItem.youtubeID, provider: 'youtube' }] };
+            return { type: 'video', sources: [{ src: sourceItem.youtubeID, provider: 'youtube' }] }; //
         }
         if (sourceItem.videoURL) {
-            return { type: 'video', sources: [{ src: sourceItem.videoURL }] };
+            return { type: 'video', sources: [{ src: sourceItem.videoURL }] }; //
         }
         return null;
     }, [content, currentEpisode]);
 
     // --- Plyr Options ---
-    const plyrOptions = useMemo(() => ({
+    const plyrOptions = useMemo(() => ({ //
         autoplay: true,
         muted: isMuted,
         controls: ['play-large', 'play', 'progress', 'current-time', 'mute', 'volume', 'fullscreen'],
@@ -201,29 +206,29 @@ export default function FullScreenPlayerPage() {
 
     // --- Control Visibility Logic ---
     const showControls = useCallback(() => {
-        clearTimeout(controlsTimeoutRef.current);
-        setIsControlsVisible(true);
-        controlsTimeoutRef.current = setTimeout(() => {
-            setIsControlsVisible(false);
+        clearTimeout(controlsTimeoutRef.current); //
+        setIsControlsVisible(true); //
+        controlsTimeoutRef.current = setTimeout(() => { //
+            setIsControlsVisible(false); //
         }, 3000);
     }, []);
 
     useEffect(() => {
-        showControls(); // Show on mount
-        return () => clearTimeout(controlsTimeoutRef.current);
+        showControls(); // Show on mount //
+        return () => clearTimeout(controlsTimeoutRef.current); //
     }, [showControls]);
 
     // --- Handlers ---
     const handleSelectEpisode = (episode) => {
-        setCurrentEpisode(episode);
-        setIsEpisodesPanelOpen(false); // Close panel on selection
+        setCurrentEpisode(episode); //
+        setIsEpisodesPanelOpen(false); // Close panel on selection //
     };
 
     const toggleMute = () => {
-        const player = plyrRef.current?.plyr;
+        const player = plyrRef.current?.plyr; //
         if (player) {
-            player.muted = !player.muted;
-            setIsMuted(player.muted);
+            player.muted = !player.muted; //
+            setIsMuted(player.muted); //
         }
     };
 
@@ -254,15 +259,15 @@ export default function FullScreenPlayerPage() {
     return (
         <div
             className="relative w-screen h-screen bg-black text-white overflow-hidden"
-            onMouseMove={showControls}
-            onClick={showControls}
-            onMouseLeave={() => setIsControlsVisible(false)}
+            onMouseMove={showControls} //
+            onClick={showControls} //
+            onMouseLeave={() => setIsControlsVisible(false)} //
         >
-            {playerSource ? (
+            {playerSource ? ( //
                 <Plyr
-                    ref={plyrRef}
-                    source={playerSource}
-                    options={plyrOptions}
+                    ref={plyrRef} //
+                    source={playerSource} //
+                    options={plyrOptions} //
                 />
             ) : (
                 <div className="w-full h-full grid place-items-center">
@@ -272,7 +277,7 @@ export default function FullScreenPlayerPage() {
 
             {/* Custom Controls Overlay */}
             <AnimatePresence>
-                {isControlsVisible && (
+                {isControlsVisible && ( //
                     <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
@@ -302,7 +307,7 @@ export default function FullScreenPlayerPage() {
                                 <button onClick={() => setIsInfoPanelOpen(true)} className="p-2 rounded-full hover:bg-white/10" aria-label="More Info">
                                     <Info className="w-6 h-6" />
                                 </button>
-                                {content.type === 'series' && content.episodes?.length > 0 && (
+                                {content.type === 'series' && content.episodes?.length > 0 && ( //
                                     <button onClick={() => setIsEpisodesPanelOpen(true)} className="p-2 rounded-full hover:bg-white/10" aria-label="Episodes">
                                         <ListVideo className="w-6 h-6" />
                                     </button>
@@ -315,25 +320,25 @@ export default function FullScreenPlayerPage() {
 
             {/* Panels */}
             <AnimatePresence>
-                {isInfoPanelOpen && (
+                {isInfoPanelOpen && ( //
                     <>
                         <motion.div
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
-                            onClick={() => setIsInfoPanelOpen(false)}
+                            onClick={() => setIsInfoPanelOpen(false)} //
                             className="absolute inset-0 bg-black/60 z-30"
                         />
                         <InfoPanel content={content} onClose={() => setIsInfoPanelOpen(false)} />
                     </>
                 )}
-                {isEpisodesPanelOpen && (
+                {isEpisodesPanelOpen && ( //
                     <>
                         <motion.div
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
-                            onClick={() => setIsEpisodesPanelOpen(false)}
+                            onClick={() => setIsEpisodesPanelOpen(false)} //
                             className="absolute inset-0 bg-black/60 z-30"
                         />
                         <EpisodesPanel

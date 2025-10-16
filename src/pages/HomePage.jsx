@@ -296,7 +296,7 @@ export default function HomePage() {
                         const movieDetails = moviesData.find((m) => m.id === t.movie_id);
                         // FIX: Ensure the unique `id` from the trending document (`t`) is used for the key.
                         // By spreading movieDetails first, then t, `t.id` will overwrite `movieDetails.id`.
-                        return movieDetails ? { ...movieDetails, ...t } : null;
+                        return movieDetails ? { ...t, ...movieDetails } : null;
                     }).filter(Boolean);
                     setTrendingMovies(fullTrendingMovies);
                 }
