@@ -39,7 +39,7 @@ export default function MovieCard({ movie }) {
     return (
         <div
             ref={cardRef}
-            className="bg-[#1A1A1A] rounded-lg overflow-hidden text-white flex flex-col h-full cursor-pointer group"
+            className="bg-[#1B1A29] rounded-lg overflow-hidden text-white flex flex-col h-full cursor-pointer group"
             onPointerEnter={handleEnter}
             onPointerLeave={handleLeave}
             onClick={openExpandedPreview}

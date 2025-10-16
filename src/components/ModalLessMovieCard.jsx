@@ -22,7 +22,7 @@ export default function ModalLessMovieCard({ movie }) {
 
     return (
         <div
-            className="bg-[#1A1A1A] rounded-lg overflow-hidden text-white flex flex-col h-full cursor-pointer group"
+            className="bg-[#1B1A29] rounded-lg overflow-hidden text-white flex flex-col h-full cursor-pointer group"
             onClick={handleNavigate} // Navigation now only happens on click
         >
             <div className="relative">
