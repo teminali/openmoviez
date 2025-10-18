@@ -228,9 +228,7 @@ export default function MoviesPage() {
                             >
                                 {visible.map((movie) => (
                                     <motion.li key={movie.id} variants={itemVariants}>
-                                        <Link to={`/movie/${movie.id}`}>
-                                            <MovieCard movie={movie} />
-                                        </Link>
+                                        <MovieCard movie={movie} />
                                     </motion.li>
                                 ))}
                             </motion.ul>

@@ -233,9 +233,7 @@ export default function SeriesPage() {
                             >
                                 {visible.map((series) => (
                                     <motion.li key={series.id} variants={itemVariants}>
-                                        <Link to={`/movie/${series.id}`}>
-                                            <MovieCard movie={series} />
-                                        </Link>
+                                        <MovieCard movie={series} />
                                     </motion.li>
                                 ))}
                             </motion.ul>
