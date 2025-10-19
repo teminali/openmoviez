@@ -10,7 +10,7 @@ import ProfileSettingsTab from "../components/ProfileSettingsTab"; // Assuming y
 
 
 // The main view of the dashboard
-function DashboardHome({ stats, quickActions, recentMovies }) {
+function DashboardHome({ stats, quickActions, recentMovies, draft, onClearDraft }) {
     const trends = [
         { title: "Views (7d)", value: "+18%", sub: "12,418", icon: TrendingUp },
         { title: "New Favorites", value: "+9%", sub: "1,032", icon: TrendingUp },
@@ -39,6 +39,28 @@ function DashboardHome({ stats, quickActions, recentMovies }) {
             {/* Quick Actions & Trends */}
             <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-2 rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+                    {/* DRAFT SECTION - START */}
+                    {draft && (
+                        <div className="mb-6 rounded-xl border border-indigo-400/30 bg-indigo-500/10 p-4">
+                            <h3 className="font-medium text-slate-100">Continue Editing Your Draft</h3>
+                            <p className="text-sm text-slate-300 mt-1">
+                                {draft.title ? `You were working on "${draft.title}".` : "You have an unsaved draft."}
+                            </p>
+                            <div className="mt-4 flex items-center gap-2">
+                                <Link to="/share" className="inline-flex items-center justify-center rounded-lg bg-indigo-500/90 hover:bg-indigo-500 px-3.5 py-2 text-sm font-medium transition">
+                                    Resume
+                                </Link>
+                                <button
+                                    onClick={onClearDraft}
+                                    className="inline-flex items-center justify-center rounded-lg bg-white/5 border border-white/10 text-slate-100 hover:bg-white/10 px-3.5 py-2 text-sm font-medium transition"
+                                >
+                                    Discard
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                    {/* DRAFT SECTION - END */}
+
                     <h2 className="text-base font-medium">Quick Actions</h2>
                     <div className="mt-4 grid grid-cols-2 md:grid-cols-3 gap-3">
                         {quickActions.map((a) => (
@@ -102,6 +124,28 @@ export default function DashboardPage() {
     const location = useLocation();
     const [userMovies, setUserMovies] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [draft, setDraft] = useState(null);
+
+    // Check for a draft in localStorage when the component mounts
+    useEffect(() => {
+        const savedDraft = localStorage.getItem("movieShareDraft");
+        if (savedDraft) {
+            try {
+                const parsed = JSON.parse(savedDraft);
+                if (Object.keys(parsed).length > 0 && !parsed.__restored) {
+                    setDraft(parsed);
+                }
+            } catch (e) {
+                console.error("Failed to parse movie draft", e);
+                localStorage.removeItem("movieShareDraft"); // Clear corrupted draft
+            }
+        }
+    }, []);
+
+    const clearDraft = () => {
+        localStorage.removeItem("movieShareDraft");
+        setDraft(null);
+    };
 
     const refetchMovies = async () => {
         if (!currentUser) return;
@@ -147,7 +191,7 @@ export default function DashboardPage() {
             case 'profile':
                 return <ProfileSettingsTab />;
             default:
-                return <DashboardHome stats={stats} quickActions={quickActions} recentMovies={userMovies} />;
+                return <DashboardHome stats={stats} quickActions={quickActions} recentMovies={userMovies} draft={draft} onClearDraft={clearDraft} />;
         }
     };
 

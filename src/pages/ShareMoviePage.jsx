@@ -623,14 +623,8 @@ export default function ShareMoviePage() {
     const [coverFile, setCoverFile] = useState(null);
     const [coverURL, setCoverURL] = useState(null);
     const [episodes, setEpisodes] = useState([{ seasonNumber: 1, episodeNumber: 1, title: "", videoLink: "" }]);
-    const [directors, setDirectors] = useState([{
-        tempId: crypto.randomUUID?.() || String(Date.now()),
-        personId: null, name: "", file: null, bio: "", birthDate: "", birthPlace: "", social: { twitter: "", instagram: "" },
-    }]);
-    const [actors, setActors] = useState([{
-        tempId: (crypto.randomUUID?.() || String(Date.now())) + "-a",
-        personId: null, name: "", character: "", file: null, bio: "", birthDate: "", birthPlace: "", social: { twitter: "", instagram: "" },
-    }]);
+    const [directors, setDirectors] = useState([]);
+    const [actors, setActors] = useState([]);
     const [commentsEnabled, setCommentsEnabled] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState("");
@@ -639,12 +633,7 @@ export default function ShareMoviePage() {
     const [step, setStep] = useState(0);
 
     // Gather form for autosave
-    const [form, setForm] = useState({
-        contentType, title, description, year, releaseDate, genres,
-        trailerLink, videoType, videoLink, episodes, commentsEnabled,
-        actors: actors.map(({ file, ...rest }) => rest),
-        directors: directors.map(({ file, ...rest }) => rest),
-    });
+    const [form, setForm] = useState({});
     useEffect(() => {
         setForm({
             contentType, title, description, year, releaseDate, genres,
@@ -657,6 +646,28 @@ export default function ShareMoviePage() {
     const { add: toast, UI: Toasts } = useToast();
     const { clear: clearDraft } = useDraft("movieShareDraft", form, setForm);
     const saveDraftNow = () => { localStorage.setItem("movieShareDraft", JSON.stringify(form)); toast("Draft saved"); };
+
+    // Hydrate form from the draft after it's been restored by the useDraft hook
+    useEffect(() => {
+        if (form && form.__restored) {
+            setContentType(form.contentType || "movie");
+            setTitle(form.title || "");
+            setDescription(form.description || "");
+            setYear(form.year || "");
+            setReleaseDate(form.releaseDate || "");
+            setGenres(form.genres || []);
+            setTrailerLink(form.trailerLink || "");
+            setVideoType(form.videoType || "youtube");
+            setVideoLink(form.videoLink || "");
+            setCommentsEnabled(form.commentsEnabled !== false);
+            setEpisodes(form.episodes && form.episodes.length > 0 ? form.episodes : [{ seasonNumber: 1, episodeNumber: 1, title: "", videoLink: "" }]);
+
+            // The 'file' property is not stored in JSON, so we add it back as null.
+            const hydratePeople = (people) => (people || []).map(p => ({ ...p, file: null }));
+            setActors(hydratePeople(form.actors));
+            setDirectors(hydratePeople(form.directors));
+        }
+    }, [form]);
 
     // Load existing (Edit)
     useEffect(() => {
@@ -821,7 +832,7 @@ export default function ShareMoviePage() {
         } finally {
             setSubmitting(false);
         }
-    }, [movieId, title, description, year, releaseDate, genres, contentType, videoType, videoLink, episodes, posterFile, coverFile, directors, actors, currentUser, navigate, posterURL, trailerLink, commentsEnabled]);
+    }, [movieId, title, description, year, releaseDate, genres, contentType, videoType, videoLink, episodes, posterFile, coverFile, directors, actors, currentUser, navigate, posterURL, trailerLink, commentsEnabled, clearDraft]);
 
     return (
         <Shell>
