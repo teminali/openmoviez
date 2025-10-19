@@ -6,13 +6,14 @@ import Plyr from "plyr-react";
 import "plyr/dist/plyr.css";
 import {
     X, Play, Plus, Check, ChevronDown, VolumeX, Volume2,
-    ThumbsUp, Clock, Loader2
+    ThumbsUp, Clock, Loader2, Star, MessageSquare, Send, CornerDownRight
 } from "lucide-react";
 
 import {
     getMovieById, getPeopleByIds, getMovies,
     addToWatchlist, removeFromWatchlist, getWatchlist,
-    likeMovie, unlikeMovie
+    likeMovie, unlikeMovie,
+    getRatings, addRating, getComments, addComment, addReply
 } from "../firebase";
 import { useAuth } from "../context/AuthContext";
 import ModalLessMovieCard from "./ModalLessMovieCard.jsx";
@@ -136,6 +137,233 @@ const PeopleCollapsible = ({ title, people = [] }) => {
     );
 };
 
+// --- Star Rating Component ---
+const StarRating = ({ rating, onRate, maxRating = 5, size = 20, className = "" }) => {
+    const [hoverRating, setHoverRating] = useState(0);
+    const canRate = !!onRate;
+    const stars = Array.from({ length: maxRating }, (_, i) => i + 1);
+
+    return (
+        <div
+            className={cx("flex items-center gap-0.5", canRate && "cursor-pointer", className)}
+            onMouseLeave={canRate ? () => setHoverRating(0) : undefined}
+        >
+            {stars.map((star) => {
+                const effectiveRating = hoverRating || rating;
+                return (
+                    <button
+                        type="button"
+                        key={star}
+                        disabled={!canRate}
+                        className="disabled:cursor-default focus:outline-none"
+                        aria-label={`Rate ${star} stars`}
+                        onMouseEnter={canRate ? () => setHoverRating(star) : undefined}
+                        onClick={canRate ? (e) => { e.stopPropagation(); onRate(star); setHoverRating(0); } : undefined}
+                    >
+                        <Star
+                            className={cx(
+                                "transition-colors",
+                                star <= effectiveRating ? "text-yellow-400 fill-yellow-400" : "text-gray-500"
+                            )}
+                            style={{ width: size, height: size }}
+                        />
+                    </button>
+                );
+            })}
+        </div>
+    );
+};
+
+// --- Single Comment/Reply Component ---
+const CommentItem = ({ comment, movieId, currentUser, onReplyPosted }) => {
+    const [showReplyForm, setShowReplyForm] = useState(false);
+    const [replyText, setReplyText] = useState("");
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    const handleReplySubmit = async (e) => {
+        e.preventDefault();
+        if (!replyText.trim() || !currentUser) return;
+        setIsSubmitting(true);
+        try {
+            await addReply(movieId, comment.id, {
+                text: replyText,
+                userId: currentUser.uid,
+                userDisplayName: currentUser.displayName,
+                userPhotoURL: currentUser.photoURL,
+            });
+            setReplyText("");
+            setShowReplyForm(false);
+            onReplyPosted(); // Trigger refetch in parent
+        } catch (error) {
+            console.error("Failed to post reply:", error);
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    return (
+        <div className="flex items-start gap-3">
+            <PersonAvatar person={{ name: comment.userDisplayName, photoURL: comment.userPhotoURL }} size={36} />
+            <div className="flex-1">
+                <div className="flex items-baseline gap-2">
+                    <span className="font-semibold text-white text-sm">{comment.userDisplayName}</span>
+                    <span className="text-xs text-slate-500">{formatDate(comment.createdAt)}</span>
+                </div>
+                <p className="text-sm text-slate-300 mt-0.5">{comment.text}</p>
+                {currentUser && (
+                    <button onClick={() => setShowReplyForm(!showReplyForm)} className="mt-1 text-xs text-indigo-400 hover:text-indigo-300 font-semibold">
+                        Reply
+                    </button>
+                )}
+                {showReplyForm && (
+                    <form onSubmit={handleReplySubmit} className="flex items-start gap-2 mt-2">
+                        <PersonAvatar person={{ name: currentUser.displayName, photoURL: currentUser.photoURL }} size={28} />
+                        <div className="flex-1">
+                            <textarea
+                                value={replyText}
+                                onChange={(e) => setReplyText(e.target.value)}
+                                placeholder={`Replying to ${comment.userDisplayName}...`}
+                                className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-sm text-slate-200 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+                                rows="1"
+                            />
+                            <button
+                                type="submit"
+                                disabled={isSubmitting || !replyText.trim()}
+                                className="mt-1 px-3 py-1 text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 rounded-lg disabled:opacity-50 inline-flex items-center gap-1"
+                            >
+                                {isSubmitting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
+                                Post Reply
+                            </button>
+                        </div>
+                    </form>
+                )}
+                <div className="mt-3 space-y-3 pl-5 border-l-2 border-slate-800">
+                    {comment.replies && comment.replies.map(reply => (
+                        <CommentItem key={reply.id} comment={reply} movieId={movieId} currentUser={currentUser} onReplyPosted={onReplyPosted}/>
+                    ))}
+                </div>
+            </div>
+        </div>
+    )
+}
+
+// --- Comments Section Content ---
+const CommentsSection = ({ movieId, currentUser }) => {
+    const [comments, setComments] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [newComment, setNewComment] = useState("");
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    const fetchComments = useCallback(async () => {
+        setIsLoading(true);
+        try {
+            const fetchedComments = await getComments(movieId);
+            setComments(fetchedComments);
+        } catch (error) {
+            console.error("Failed to fetch comments:", error);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [movieId]);
+
+    useEffect(() => {
+        fetchComments();
+    }, [fetchComments]);
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        if (!newComment.trim() || !currentUser) return;
+        setIsSubmitting(true);
+        try {
+            await addComment(movieId, {
+                text: newComment,
+                userId: currentUser.uid,
+                userDisplayName: currentUser.displayName,
+                userPhotoURL: currentUser.photoURL,
+            });
+            setNewComment("");
+            await fetchComments(); // Refetch to show the new comment
+        } catch (error) {
+            console.error("Failed to post comment:", error);
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    return (
+        <>
+            {currentUser && (
+                <form onSubmit={handleSubmit} className="flex items-start gap-3 mb-6">
+                    <PersonAvatar person={{ name: currentUser.displayName, photoURL: currentUser.photoURL }} size={40} />
+                    <div className="flex-1">
+                        <textarea
+                            value={newComment}
+                            onChange={(e) => setNewComment(e.target.value)}
+                            placeholder="Add a comment..."
+                            className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-sm text-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            rows="2"
+                        />
+                        <button
+                            type="submit"
+                            disabled={isSubmitting || !newComment.trim()}
+                            className="mt-2 px-4 py-1.5 text-sm font-semibold bg-indigo-600 hover:bg-indigo-500 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
+                        >
+                            {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                            Post
+                        </button>
+                    </div>
+                </form>
+            )}
+            <div className="space-y-4">
+                {isLoading ? (
+                    <div className="text-center text-slate-400">Loading comments...</div>
+                ) : comments.length === 0 ? (
+                    <div className="text-center text-slate-500 text-sm py-4">Be the first to comment.</div>
+                ) : (
+                    comments.map(comment => (
+                        <CommentItem key={comment.id} comment={comment} movieId={movieId} currentUser={currentUser} onReplyPosted={fetchComments}/>
+                    ))
+                )}
+            </div>
+        </>
+    );
+};
+
+// --- NEW: Collapsible Wrapper for Comments ---
+const CommentsCollapsible = ({ movieId, currentUser }) => {
+    const [open, setOpen] = useState(false);
+
+    return (
+        <div className="mt-8 pt-6 border-t border-white/10">
+            <div className="flex items-center justify-between mb-4">
+                <h3 className="text-2xl font-bold text-white flex items-center gap-3">
+                    Comments
+                </h3>
+                <button
+                    className="text-sm text-indigo-300 hover:text-indigo-200 font-semibold"
+                    onClick={() => setOpen(o => !o)}
+                >
+                    {open ? "Hide" : "Show"}
+                </button>
+            </div>
+            <AnimatePresence initial={false}>
+                {open && (
+                    <motion.div
+                        key="comments-content"
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.3, ease: "easeInOut" }}
+                        className="overflow-hidden"
+                    >
+                        <CommentsSection movieId={movieId} currentUser={currentUser} />
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </div>
+    );
+}
+
 // ------------------------------------------------------------
 
 export default function MoviePreviewModal({
@@ -173,6 +401,10 @@ export default function MoviePreviewModal({
     const [likeCount, setLikeCount] = useState(0);
     const [isLikeBusy, setIsLikeBusy] = useState(false);
 
+    // Ratings State
+    const [ratings, setRatings] = useState([]);
+    const [userRating, setUserRating] = useState(0); // 0 means not rated
+
     // Refs
     const backdropRef = useRef(null);
     const closeBtnRef = useRef(null);
@@ -180,6 +412,13 @@ export default function MoviePreviewModal({
     const plyrRef = useRef(null);
 
     const displayMovie = details || movie;
+
+    // Memoized average rating calculation
+    const averageRating = useMemo(() => {
+        if (!ratings || ratings.length === 0) return 0;
+        const total = ratings.reduce((acc, r) => acc + r.value, 0);
+        return (total / ratings.length);
+    }, [ratings]);
 
     // Trailer source
     const trailerSource = useMemo(() => {
@@ -272,6 +511,21 @@ export default function MoviePreviewModal({
         }
     };
 
+    // Handle user rating submission
+    const handleSetRating = async (newValue) => {
+        if (!currentUser) return;
+        const oldValue = userRating;
+        setUserRating(newValue); // Optimistic update for instant feedback
+        try {
+            await addRating(movie.id, currentUser.uid, newValue);
+            const updatedRatings = await getRatings(movie.id); // Refetch for accuracy
+            setRatings(updatedRatings);
+        } catch (error) {
+            console.error("Failed to submit rating:", error);
+            setUserRating(oldValue); // Revert on failure
+        }
+    };
+
     // Effects
     useEffect(() => {
         return () => {
@@ -285,7 +539,7 @@ export default function MoviePreviewModal({
         };
     }, []);
 
-    useEffect(() => { // Fetch details, recommendations, and user-specific data
+    useEffect(() => { // Fetch details, recommendations, ratings, and user-specific data
         let alive = true;
         const run = async () => {
             if (!isExpanded || !movie?.id) return;
@@ -293,9 +547,19 @@ export default function MoviePreviewModal({
 
             setIsLoadingDetails(true);
             try {
-                const promises = [getMovieById(movie.id), getMovies()];
+                // Fetch movie, recs, ratings all at once
+                const promises = [getMovieById(movie.id), getMovies(), getRatings(movie.id)];
                 if (currentUser) promises.push(getWatchlist(currentUser.uid));
-                const [full, recs, watchlist] = await Promise.all(promises);
+
+                const [full, recs, fetchedRatings, watchlist] = await Promise.all(promises);
+
+                if (fetchedRatings && alive) {
+                    setRatings(fetchedRatings);
+                    if (currentUser) {
+                        const myRating = fetchedRatings.find(r => r.id === currentUser.uid);
+                        if (myRating) setUserRating(myRating.value);
+                    }
+                }
 
                 if (full && alive) {
                     const directorIds = full.directors || [];
@@ -635,6 +899,12 @@ export default function MoviePreviewModal({
                                                 <div className="flex items-center gap-1 text-white/60">
                                                     <ThumbsUp className="w-4 h-4" /> {likeCount}
                                                 </div>
+                                                {/* --- Average Rating Display (10-star based) --- */}
+                                                <div className="flex items-center gap-1 text-white/60" title={`${averageRating.toFixed(2)} average rating`}>
+                                                    <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
+                                                    <span className="text-white/90 font-medium">{averageRating.toFixed(1)}</span>
+                                                    ({ratings.length})
+                                                </div>
                                             </div>
                                             <p className="mt-4 text-white/80 leading-relaxed text-base">
                                                 {displayMovie?.description}
@@ -646,6 +916,13 @@ export default function MoviePreviewModal({
                                                 <p className="mt-1 text-white/60">
                                                     <span className="text-white">Released: </span>{formatDate(displayMovie.releaseDate)}
                                                 </p>
+                                            )}
+                                            {/* --- User Rating Input (10 stars) --- */}
+                                            {currentUser && (
+                                                <div className="mt-4">
+                                                    <p className="text-white mb-1.5">Your Rating:</p>
+                                                    <StarRating rating={userRating} onRate={handleSetRating} maxRating={10} size={16} />
+                                                </div>
                                             )}
                                             {/* Compact, world-standard people rows */}
                                             <div className="mt-4 space-y-2">
@@ -683,6 +960,11 @@ export default function MoviePreviewModal({
                                         <PeopleCollapsible title="Full Cast" people={details?.actors || []} />
                                         <PeopleCollapsible title="All Directors" people={details?.directors || []} />
                                     </div>
+
+                                    {/* --- Conditional & Collapsible Comments Section --- */}
+                                    {displayMovie.commentsEnabled === true && displayMovie.id && (
+                                        <CommentsCollapsible movieId={displayMovie.id} currentUser={currentUser} />
+                                    )}
 
                                     {recommendations.length > 0 && (
                                         <div className="mt-8 pt-6 border-t border-white/10">

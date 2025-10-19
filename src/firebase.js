@@ -27,6 +27,7 @@ import {
     documentId,
     arrayUnion,
     arrayRemove,
+    writeBatch,
 } from "firebase/firestore";
 import { getStorage, ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 
@@ -144,7 +145,6 @@ export const logIn = async (email, password) => {
 export const logOut = () => signOut(auth);
 export const onAuthChange = (callback) => onAuthStateChanged(auth, callback);
 
-// ## UPDATED FUNCTION ##
 export const updateUserProfile = async (newProfileData, newAvatarFile = null) => {
     // Get the live user object directly from auth
     const user = auth.currentUser;
@@ -170,7 +170,6 @@ export const updateUserProfile = async (newProfileData, newAvatarFile = null) =>
     });
 };
 
-// ## UPDATED FUNCTION ##
 export const changeUserPassword = (newPassword) => {
     // Get the live user object directly from auth
     const user = auth.currentUser;
@@ -213,8 +212,20 @@ export const getAllMoviesAdmin = async () => {
 };
 
 // --- People (Cast/Crew) Management ---
+export const searchPeople = async (searchText) => {
+    if (!searchText || searchText.length < 2) return [];
+    const peopleRef = collection(db, PEOPLE_COLLECTION);
+    const q = query(
+        peopleRef,
+        where('searchTerms', 'array-contains', searchText.toLowerCase()),
+        limit(10)
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+};
+
 export const findOrCreatePerson = async (personData) => {
-    const { name, file } = personData;
+    const { name, file, bio = '', birthDate = null, birthPlace = '', social = { twitter: '', instagram: '' } } = personData;
     if (!name || !name.trim()) return null;
 
     const peopleRef = collection(db, PEOPLE_COLLECTION);
@@ -236,8 +247,34 @@ export const findOrCreatePerson = async (personData) => {
             profilePicURL,
             searchTerms: createSearchTerms(name),
             createdAt: Timestamp.now(),
+            bio,
+            birthDate: birthDate ? Timestamp.fromDate(new Date(birthDate)) : null,
+            birthPlace,
+            social,
+            totalMovies: 0,
         });
         return newPersonDoc.id;
+    }
+};
+
+export const updatePersonMovieCount = async (personIds, amount = 1) => {
+    if (!personIds || personIds.length === 0) return;
+    const batch = writeBatch(db);
+    personIds.forEach(id => {
+        const personRef = doc(db, PEOPLE_COLLECTION, id);
+        batch.update(personRef, { totalMovies: increment(amount) });
+    });
+    await batch.commit();
+};
+
+export const getPersonById = async (id) => {
+    try {
+        const docRef = doc(db, PEOPLE_COLLECTION, id);
+        const docSnap = await getDoc(docRef);
+        return docSnap.exists() ? { id: docSnap.id, ...docSnap.data() } : null;
+    } catch (error) {
+        console.error("Error fetching person by ID:", error);
+        return null;
     }
 };
 
@@ -258,10 +295,35 @@ export const getPeopleByIds = async (ids = []) => {
     }
 };
 
+export const getTopPeople = async (limitCount = 10) => {
+    try {
+        const peopleRef = collection(db, PEOPLE_COLLECTION);
+        const q = query(peopleRef, orderBy("totalMovies", "desc"), limit(limitCount));
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    } catch (error) {
+        console.error("Error fetching top people:", error);
+        return [];
+    }
+};
+
+export const getRecentPeople = async (limitCount = 12) => {
+    try {
+        const peopleRef = collection(db, PEOPLE_COLLECTION);
+        const q = query(peopleRef, orderBy("createdAt", "desc"), limit(limitCount));
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    } catch (error) {
+        console.error("Error fetching recent people:", error);
+        return [];
+    }
+};
+
+
 // --- Movie Management ---
 export const shareNewMovie = async (movieData, posterFile, coverFile, actorsData = [], directorsData = [], user) => {
     const directorIds = await Promise.all(
-        directorsData.filter(d => d.name).map(director => findOrCreatePerson(director))
+        directorsData.filter(d => d.name).map(findOrCreatePerson)
     );
     const actorsPayload = await Promise.all(
         actorsData.filter(a => a.name).map(async (actor) => {
@@ -289,14 +351,40 @@ export const shareNewMovie = async (movieData, posterFile, coverFile, actorsData
         uploaderName: user.displayName || user.email,
         createdAt: Timestamp.now(),
         isActive: true,
-        isVerified: false, // Default verification status
+        isVerified: false,
         searchTerms: createSearchTerms(movieData.title),
         directors: directorIds.filter(id => id),
         actors: actorsPayload.filter(a => a.personId),
     });
+
+    const allPersonIds = [...directorIds, ...actorsPayload.map(a => a.personId)].filter(Boolean);
+    const uniquePersonIds = [...new Set(allPersonIds)];
+    await updatePersonMovieCount(uniquePersonIds, 1);
 };
 
 export const updateMovie = async (id, updatedData, newPosterFile = null, newCoverFile = null, actorsData = [], directorsData = []) => {
+    const movieDocRef = doc(db, MOVIES_COLLECTION, id);
+    const oldDocSnap = await getDoc(movieDocRef);
+    if (!oldDocSnap.exists()) throw new Error("Movie not found.");
+    const oldData = oldDocSnap.data();
+
+    const oldDirectorIds = oldData.directors || [];
+    const oldActorPersonIds = (oldData.actors || []).map(a => a.personId);
+    const oldPersonIds = new Set([...oldDirectorIds, ...oldActorPersonIds]);
+
+    const newDirectorIds = await Promise.all(directorsData.filter(d => d.name).map(findOrCreatePerson));
+    const newActorsPayload = await Promise.all(
+        actorsData.filter(a => a.name).map(async (actor) => {
+            const personId = await findOrCreatePerson(actor);
+            return { personId, characterName: actor.character || '' };
+        })
+    );
+    const newActorPersonIds = newActorsPayload.map(a => a.personId);
+    const newPersonIds = new Set([...newDirectorIds, ...newActorPersonIds].filter(Boolean));
+
+    const addedPeople = [...newPersonIds].filter(personId => !oldPersonIds.has(personId));
+    const removedPeople = [...oldPersonIds].filter(personId => !newPersonIds.has(personId));
+
     let finalData = { ...updatedData };
     delete finalData.actors;
     if (updatedData.title) {
@@ -312,23 +400,14 @@ export const updateMovie = async (id, updatedData, newPosterFile = null, newCove
         const snapshot = await uploadBytesResumable(coverRef, newCoverFile);
         finalData.coverURL = await getDownloadURL(snapshot.ref);
     }
-    if (directorsData) {
-        const directorIds = await Promise.all(
-            directorsData.filter(d => d.name).map(director => findOrCreatePerson(director))
-        );
-        finalData.directors = directorIds.filter(id => id);
-    }
-    if (actorsData) {
-        const actorsPayload = await Promise.all(
-            actorsData.filter(a => a.name).map(async (actor) => {
-                const personId = await findOrCreatePerson(actor);
-                return { personId, characterName: actor.character || '' };
-            })
-        );
-        finalData.actors = actorsPayload.filter(a => a.personId);
-    }
-    const movieDoc = doc(db, MOVIES_COLLECTION, id);
-    await updateDoc(movieDoc, finalData);
+
+    finalData.directors = newDirectorIds.filter(id => id);
+    finalData.actors = newActorsPayload.filter(a => a.personId);
+
+    await updateDoc(movieDocRef, finalData);
+
+    if (addedPeople.length > 0) await updatePersonMovieCount(addedPeople, 1);
+    if (removedPeople.length > 0) await updatePersonMovieCount(removedPeople, -1);
 };
 
 export const deleteMovie = async (id) => {
@@ -361,6 +440,27 @@ export const getMovies = async (searchTerm = '') => {
         return movies;
     } catch (error) {
         console.error("Error in getMovies:", error);
+        return [];
+    }
+};
+
+export const getMoviesByPersonId = async (personId) => {
+    try {
+        const allMoviesSnapshot = await getDocs(query(collection(db, MOVIES_COLLECTION), where("isActive", "==", true)));
+        const movies = [];
+        allMoviesSnapshot.forEach(doc => {
+            const movie = { id: doc.id, ...doc.data() };
+            const isActor = movie.actors?.some(a => a.personId === personId);
+            const isDirector = movie.directors?.includes(personId);
+            if(isActor || isDirector) {
+                movies.push(movie);
+            }
+        });
+
+        return movies.sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
+
+    } catch (error) {
+        console.error("Error fetching movies by person ID:", error);
         return [];
     }
 };
@@ -406,7 +506,6 @@ export const getMovieById = async (id) => {
 // --- Trending Functions ---
 export async function getTrendingMovies(max = 20) {
     try {
-        // 👇 Correct collection name from your screenshot
         const q = query(
             collection(db, "trending_searches"),
             orderBy("count", "desc"),
@@ -415,7 +514,6 @@ export async function getTrendingMovies(max = 20) {
 
         const snapshot = await getDocs(q);
 
-        // 👇 Build your trending movie objects
         const trending = snapshot.docs.map((doc) => {
             const data = doc.data();
             return {
@@ -423,6 +521,7 @@ export async function getTrendingMovies(max = 20) {
                 movie_id: data.movie_id || null,
                 coverURL: data.coverURL || data.posterURL || "",
                 posterURL: data.posterURL || data.coverURL || "",
+                trailerYoutubeID: data.trailerYoutubeID || null,
                 searchTerm: data.searchTerm || "",
                 count: data.count || 0,
             };
@@ -445,6 +544,7 @@ export const updateSearchCount = async (searchTerm, firstMovieResult) => {
         movie_id: firstMovieResult.id,
         posterURL: firstMovieResult.posterURL,
         coverURL: firstMovieResult.coverURL || null,
+        trailerYoutubeID: firstMovieResult.trailerYoutubeID || null,
     };
 
     if (!querySnapshot.empty) {
@@ -591,7 +691,6 @@ export const getMoviesByIds = async (ids = []) => {
         });
     }
 
-    // Optional: Sort movies in the same order as the watchlist IDs
     const movieMap = movies.reduce((acc, movie) => {
         acc[movie.id] = movie;
         return acc;

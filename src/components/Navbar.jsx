@@ -138,10 +138,10 @@ export default function Navbar({ currentUser, onLogout }) {
     return (
         <header
             className={cx(
-                "mt-0 sticky top-0 z-50 backdrop-blur transition-colors duration-300",
+                "w-full top-0 z-50 backdrop-blur transition-all duration-300",
                 scrolled
-                    ? "bg-black shadow-[inset_0_-1px_0_0_rgba(255,255,255,0.06)]"
-                    : "bg-transparent"
+                    ? "fixed bg-black shadow-[inset_0_-1px_0_0_rgba(255,255,255,0.06)]"
+                    : "absolute bg-transparent"
             )}
         >
             <div className="mx-auto max-w-7xl px-4 md:px-6">

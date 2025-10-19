@@ -6,7 +6,7 @@ import Footer from "./components/Footer.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import AdminRoute from "./components/AdminRoute.jsx";
 import { useAuth } from "./context/AuthContext.jsx";
-import { PreviewModalProvider } from './context/PreviewModalContext.jsx'; // Import the provider
+import { PreviewModalProvider } from './context/PreviewModalContext.jsx';
 import Spinner from "./components/Spinner.jsx";
 
 // Eager-light pages (keep fast)
@@ -19,11 +19,12 @@ import ShareMoviePage from "./pages/ShareMoviePage.jsx";
 import WatchlistPage from "./pages/WatchlistPage.jsx";
 import PrivacyPolicyPage from "./pages/PrivacyPolicyPage.jsx";
 import TermsOfUsePage from "./pages/TermsOfUsePage.jsx";
+import ActorProfilePage from "./pages/ActorProfilePage.jsx";
 
 // Lazy-heavy pages
 const DashboardPage = lazy(() => import("./pages/DashboardPage.jsx"));
 const AdminPage = lazy(() => import("./pages/AdminPage.jsx"));
-const FullScreenPlayerPage = lazy(() => import('./pages/FullScreenPlayerPage.jsx')); // Add new player page
+const FullScreenPlayerPage = lazy(() => import('./pages/FullScreenPlayerPage.jsx'));
 
 // Smooth scroll to top on route change
 function ScrollToTop() {
@@ -37,15 +38,18 @@ function ScrollToTop() {
 // Root layout applies global background + shared chrome (Navbar, Footer)
 function RootLayout({ currentUser, onLogout }) {
     const navbarProps = useMemo(() => ({ currentUser, onLogout }), [currentUser, onLogout]);
+    const location = useLocation();
+    const isHomePage = location.pathname === '/';
 
     return (
         <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-slate-950 to-black text-slate-100">
             <Navbar {...navbarProps} />
             <ScrollToTop />
-            <div className="min-h-[calc(100vh-4rem)]">
-                {/* Outlet for pages within the main layout */}
-                <Outlet />
-            </div>
+
+            {/* This spacer pushes content down on non-home pages to prevent it from hiding under the fixed navbar */}
+            {!isHomePage && <div className="h-16" />}
+
+            <Outlet />
             <Footer />
         </div>
     );
@@ -124,13 +128,22 @@ const App = () => {
                                 </ProtectedRoute>
                             }
                         />
+                        {/* Admin */}
+                        <Route
+                            path="/watchlist"
+                            element={
+                                <ProtectedRoute>
+                                    <WatchlistPage />
+                                </ProtectedRoute>
+                            }
+                        />
 
                         {/* Admin */}
                         <Route
-                            path="/admin"
+                            path="/person/:personId"
                             element={
                                 <AdminRoute>
-                                    <AdminPage />
+                                    <ActorProfilePage />
                                 </AdminRoute>
                             }
                         />
@@ -148,4 +161,3 @@ const App = () => {
 };
 
 export default App;
-
